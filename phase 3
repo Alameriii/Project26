@@ -1,1 +1,27 @@
+Phase 3 - Requriment Analyasis
 
+1.Intro: 
+
+ 
+2.System Feature
+
+
+
+3. Functional requriment
+
+
+4.Use cases 
+
+
+Sample:
+UC1: Register Assest
+
+Description: An authariozed user record a new assest so it appears in the shared inventory  with a standard category. 
+
+Actors: Departmeant representive or (primary), 
+PreConditions:
+Trigger:
+Main Flow:
+Alternative flow:
+Expectation flow:
+Postconditions:
