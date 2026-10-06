@@ -24,7 +24,13 @@ Trigger:user clicks "add asset"
 Main Flow: 
 1. user enters name, discroption ,quntity, location, purchase date, value ,condition, and photoes
 2. system sent the name and description to th ai service 
-3. system shows 
+3. system shows the suggested category, tags and standard descriotion with value.
+4.User accepts or edits suggestions.
+5. System Validaetes all fields
+6. System save the assest with unique id and status
+7.update the assest history and put status "registed"
 Alternative flow:
+3a: AI service not availible, manually put the category
 Expectation flow:
-Postconditions:
+5a: missing some feilds or invalid
+Postconditions:Assest stored with status regestions everything logged in  
