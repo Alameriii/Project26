@@ -19,9 +19,12 @@ UC1: Register Assest
 Description: An authariozed user record a new assest so it appears in the shared inventory  with a standard category. 
 
 Actors: Departmeant representive or (primary), 
-PreConditions:
-Trigger:
-Main Flow:
+PreConditions: user is logged in , and has register permission for the department.
+Trigger:user clicks "add asset"
+Main Flow: 
+1. user enters name, discroption ,quntity, location, purchase date, value ,condition, and photoes
+2. system sent the name and description to th ai service 
+3. system shows 
 Alternative flow:
 Expectation flow:
 Postconditions:
