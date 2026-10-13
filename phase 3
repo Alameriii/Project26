@@ -1,392 +1,758 @@
-
-
-
-
-
-Phase 3: Requirements Document
-
-
-
-
+Phase 3 – Requirements Document
 Intelligent, AI-Powered Circular Campus Resource Exchange and Asset Life Cycle Management System
 
-
-
-
- 
+COSC 336 · Lab Phase 3 · Lab instructor: Eng. Dina Atia
+Team member	ID
+Nasser Ali Alameri	100066125
+Mohammed Saif Alkuwiti	100066351
+Abdulla Ahmed Alneyadi	100066085
+Abdulrahman Ali Alaryani	100067036
 1. Introduction
 1.1 Purpose
-The purpose of this document is to record the requirements for the system we are developing. We need a single reference that the team can use when deciding whether a feature belongs in the prototype, and that the instructor can use when assessing whether we have understood the problem and expressed it in a testable way.
-We have tried to write statements that can later be checked. Where we are still uncertain we say so, rather than filling the gap with an invented rule. The document is therefore both a specification and a record of the current limits of our analysis.
-1.2 Scope
-The system is intended for a university environment. Departments frequently hold equipment, furniture or materials that remain unused for long periods while other groups purchase similar items. At the same time, assets pass through a life cycle: they are acquired, used, maintained, sometimes transferred, and eventually donated, recycled or retired. The system we are specifying is meant to support both the internal sharing of idle resources and the tracking of assets over their useful life.
-In practical terms the prototype will allow authorised users to register assets, mark them as available for sharing, search for resources (including free-text semantic search), submit and decide requests, record transfers, log maintenance work, and receive limited AI assistance. All AI features run through a local Ollama installation so that data does not need to leave the machines under our control during the course project.
-We are not attempting, in this phase, to integrate with the university’s real inventory or identity systems, to build a native mobile application, or to support physical tracking technologies such as RFID or barcodes. We are also not permitting the AI components to change the status of an asset without an explicit human confirmation. These boundaries keep the project feasible for a semester-long team while still allowing us to demonstrate the core ideas required by the brief.
-1.3 Definitions
-•	Asset — a physical item or reusable resource that the system tracks.
-•	Available — a status value meaning that the asset (or a stated quantity of it) may be requested by eligible users.
-•	Custodian — the person with day-to-day responsibility for one or more assets.
-•	Department Representative — a staff member authorized to manage assets and decide requests on behalf of a department.
-•	Life cycle action — one of: keep/reuse, transfer/share, repair, donate, recycle, retire.
-•	Llama — an open-source tool that runs language and embedding models on a local machine.
-•	Requester — an authenticated user who is allowed to search for and request resources.
-•	RBAC — role-based access control.
-•	Semantic matching — ranking of search results by meaning, using vector embeddings rather than exact keyword overlap.
-1.4 References
-•	COSC 336 Phase 3 lecture slides on requirements engineering and use cases.
-•	Project brief for the Intelligent AI-Powered Circular Campus Resource Exchange and Asset Life Cycle Management System.
-•	Phase 1 Initial Plan and Requirement Gathering Document.
-•	Phase 2 Feasibility Study.
-•	Documentation for React, Fast API, PostgreSQL and Ollama (used as technical background).
-1.5 Organization of the Document
-Section 2 describes the product, the expected users, the operating environment and the main constraints. Section 3 lists the functional requirements. Section 4 presents the non-functional requirements. Section 5 contains the actors, the system use-case diagram and the detailed textual use cases. Section 6 records the principal data concepts. Section 7 notes basic user-interface expectations. Section 8 discusses the local AI features in more detail. Section 9 lists open issues and comments on traceability. Section 10 is a short glossary.
+This document specifies what the Circular Campus system must do, version 1.0, for the COSC 336 prototype. It turns the Phase 1 findings and the Phase 2 feasibility decision (GO, with scope control) into numbered, testable requirements, use cases and a use-case diagram. It says what the system must do, not how it will be built; architecture and design follow in Phases 4–5.
+1.2 Product Scope
+The system is an internal web application where Khalifa University departments register assets, publish surplus items, request resources, approve and record transfers, and track each asset through maintenance and end of life. Five AI features support users: asset classification, semantic matching and ranking, sustainable-action recommendations, an LLM assistant, and generated reports. AI output is always advice; an authorised person makes every important decision. Public access, live links to existing university systems and demand forecasting are out of scope for this release.
+1.3 Document Conventions
+•	IDs. Functional requirements are FR-<feature>-<n> (e.g. FR-REQ-3). Non-functional requirements are NFR-<n>, business rules BR-<n>, use cases UC-<n>.
+•	Wording. "Shall" marks a mandatory requirement. Requirements follow the EARS patterns from the lecture (ubiquitous, "When…", "While…", "If… then…").
+•	Priority. Every requirement has its own MoSCoW priority: M = Must (essential prototype function), S = Should (desirable extension), C = Could (future enhancement if time allows). Priorities are not inherited.
+•	TBD. Values still to be agreed with stakeholders are marked [TBD] and listed in Section 8.
+1.4 Intended Audience
+The lab instructor reviews the full document. Developers should read Sections 2–5; testers should use the numbered requirements and the use-case flows to write Phase 7 test cases. Stakeholders (department representatives, custodians) can read Sections 2 and 6 to confirm the workflows.
+1.5 References
+•	COSC 336 Project Description, Fall 2026 (incl. SRS appendix, Sections 4 and 5.1–5.4)
+•	Lab Phase 1: Initial Plan and Requirements Gathering Document (13 Sep 2026)
+•	Lab Phase 2: Feasibility Study
+•	COSC 336 Lecture 4: Requirements Engineering; Phase 3 lab slides
+•	ISO/IEC/IEEE 29148:2018; ISO/IEC 25010:2023; WCAG 2.2
 2. Overall Description
 2.1 Product Perspective
-The system is a new web application built for the course. It is not an extension of an existing commercial product and it is not intended, in its present form, to replace any official university system. In a real institutional deployment one would expect integration with campus identity management and with existing inventory databases. For COSC 336 we treat the application as self-contained: it maintains its own users (or seeded test accounts), its own asset records, its own request workflow and its own local AI services.
-The choice to keep the AI components local followed from the feasibility study. Sending asset descriptions and user queries to an external commercial service would raise privacy questions and would also create a dependency on network access and on a third-party key. Running models through Ollama allows us to demonstrate the required AI capabilities while keeping the data on machines we control. The trade-off is a limit on model size; we therefore plan around models in the 7–8 billion parameter range that can run on typical student hardware.
-2.2 Summary of Product Functions
-At a high level the system must support five groups of activity:
-•	Asset management — creating records, updating them, and maintaining a history of significant events.
-•	Sharing and discovery — publishing assets as available and allowing other users to find them.
-•	Request and approval — a controlled workflow so that a requester can ask for an item and the owning department can accept or refuse.
-•	Transfer and maintenance — recording the physical handover and any inspection or repair work.
-•	AI assistance — classification help at registration, semantic ranking of search results, life cycle suggestions, a natural-language helper, and short narrative reports. All of these run through the local Ollama instance.
-The basic path from registration through to transfer must remain usable even if the AI components are slow or temporarily unavailable. That requirement influenced the way several of the use cases were written.
-2.3 User Characteristics
-We expect the majority of users to be university staff. In some departments senior students or research assistants may also act as requester. The typical user is comfortable with ordinary web forms and short notifications. We do not assume any background in machine learning or database administration.
-Administrators will need a slightly higher level of familiarity because they manage roles and may handle escalated requests. Even for them the interface should remain straightforward. During development and demonstration we will rely on a small set of seeded accounts that cover the different roles, so that complete scenarios can be walked through without a full user-management subsystem.
-2.4 Operating Environment
-The prototype is intended to run on ordinary student and laboratory machines. The back-end will be a Python process using Fast API, the database will be PostgreSQL (or a compatible engine for local development), and the front-end will be a React application built with Vite. Ollama will run as a separate local process that the back-end contacts over HTTP on localhost.
-Mobile phones are not treated as a primary platform, although the interface should remain usable on a tablet. Issues such as load balancing, HTTPS termination and container orchestration lie outside the scope of the course project.
-
-
-2.5 Design and Implementation Constraints
-Several practical limits shape what we can deliver within the course:
-•	The remaining time in the semester and the capacity of a student team.
-•	The decision to keep AI processing local (no external commercial LLM API’s for the core features).
-•	Hardware limits on student laptops; models larger than roughly 8B parameters become difficult to run, so we target llama3.1:8b or qwen2.5:7b for generation and nomic-embed-text for embeddings.
-•	The possible unavailability of real university asset data; sample or synthetic data will be used unless formal permission is obtained.
-•	The team’s greater familiarity with Python and JavaScript, which supports the choice of Fast API and React.
+The system is a new, self-contained product. It replaces separate departmental equipment lists with one shared record. The prototype uses React + Vite, FastAPI and PostgreSQL (confirmed in Phase 2), with the five AI features behind one AI service layer that calls the Gemini API. The core workflow must keep working when the AI service is down.
+2.2 Actors and User Classes
+Actor	Type	Main goals in the system
+Requester	Primary (human)	Search and reserve assets, submit requests, track status, use the assistant
+Department Representative	Primary (human)	Register and publish department assets, approve or reject requests, record transfers
+Asset Custodian	Primary (human)	Keep asset records accurate, confirm handover and receipt, report defects
+Maintenance Staff	Primary (human)	Record inspections, repairs and costs; update condition
+Sustainability Officer	Primary (human)	Review life-cycle recommendations; approve donation, recycling and disposal; view impact dashboard
+Procurement / Finance Officer	Secondary (human)	See reuse matches before a purchase; view savings and asset-value reports
+System Administrator	Primary (human)	Manage users, roles, departments, categories and AI settings
+AI Service (Gemini API)	Secondary (external system)	Return classifications, embeddings, recommendations, assistant replies and report text
+Notification Service (email)	Secondary (external system)	Deliver email copies of system notifications
+Generalisation: every human actor is a specialisation of Campus User, so all of them inherit Log In, Search Assets and Use AI Assistant.
+2.3 Permissions
+This refines the Phase 1 permission table. "Own dept" means only assets or requests belonging to the user's department.
+Function	Admin	Dept Rep	Custodian	Requester	Maint.	Sust. Officer
+Manage users and roles	Yes	No	No	No	No	No
+Register / edit assets	Yes	Own dept	Own assets (if granted)	No	No	No
+Publish surplus	Yes	Own dept	Own assets (if granted)	No	No	No
+Search and view listings	Yes	Yes	Yes	Yes	Yes	Yes
+Submit request / reservation	Yes	Yes	Yes	Yes	No	No
+Approve transfer request	Yes	Owning dept	No	No	No	No
+Record transfer / confirm receipt	Yes	Own dept	Own assets	No	No	No
+Record maintenance	Yes	No	Report only	No	Yes	No
+Approve donation / recycling / disposal	Yes	Recommend only	No	No	No	Yes
+View reports and dashboard	Yes	Own dept	Own assets	No	Maint. reports	Yes
+View audit log	Yes	No	No	No	No	No
+2.4 Life-Cycle States
+Asset states
+State	Meaning	Allowed next states
+Registered	Recorded, not yet in use or listed	In Use, Available
+In Use	Allocated to a department	Available, Under Maintenance, Pending Disposition
+Available	Published as surplus in the marketplace	Reserved, In Use, Under Maintenance, Pending Disposition
+Reserved	Held for one request	In Transfer, Available
+In Transfer	Approved and being moved	In Use
+Under Maintenance	Inspection or repair open	In Use, Available, Pending Disposition
+Pending Disposition	Donation, recycling or disposal proposed	Donated, Recycled, Disposed, In Use
+Donated / Recycled / Disposed	Final states; record kept read-only	—
+Request states: Draft → Submitted → Under Review → Approved or Rejected; Approved → Fulfilled; Submitted or Under Review → Cancelled (by requester) or Expired.
+Transfer states: Scheduled → Dispatched → Received (confirmed by receiving custodian) → Completed; Scheduled or Dispatched → Cancelled; Dispatched → Disputed (damage or loss reported on arrival).
+Maintenance states: Reported → Inspected → In Repair → Resolved; Inspected → Not Repairable (triggers a sustainability recommendation).
+2.5 Operating Environment
+Desktop and mobile web browsers (current Chrome, Edge, Safari, Firefox) on the university network or approved VPN. Server: FastAPI on a local or low-cost host, PostgreSQL 15 or later.
 2.6 Assumptions and Dependencies
-We assume that every team member can install Ollama and pull at least one suitable chat model and one embedding model, that PostgreSQL (or SQLite for early work) is available, and that the front-end, back-end and Ollama process can communicate on the local machine without unusual permission problems. We also assume that feedback on sample workflows can be obtained even if real institutional data is not supplied. If any of these assumptions proves false we will need to simplify the AI features or move to smaller models.
-3. Functional Requirements
-The requirements in this section describe the services the system must provide. They are grouped by area and given identifiers so that they can be traced later to use cases, design elements and tests.
-3.1 Asset and Resource Management
-•	FR-01: An authorized user shall be able to register a new asset. The record must include at least a unique identifier, a short description, a category, a condition rating, a quantity, a location and the owning department.
-•	FR-02: An authorized user shall be able to update the details of an existing asset, including changes to condition and location.
-•	FR-03: A department representative or custodian shall be able to mark an asset (or a stated quantity of it) as available for sharing or transfer.
-•	FR-04: The system shall maintain a chronological history of significant events for each asset. As a minimum the history must cover registration, status changes, transfers, maintenance entries, donation, recycling and retirement.
-•	FR-05: An authorized user shall be able to unpublish an asset so that it no longer appears in search results for new requests, while the asset record itself is retained.
-A reliable register and history are the foundation for everything else. Without them the sharing and lifecycle features have nothing solid to operate on. The history is also required later for the AI lifecycle suggestions.
-3.2 Search, Request and Approval
-•	FR-06: A requester shall be able to search available resources using keywords, category, location, condition and free-text descriptions.
-•	FR-07: A requester shall be able to submit a short-term reservation or a formal transfer request against an available asset.
-•	FR-08: The system shall route each request to the appropriate department representative or administrator for a decision.
-•	FR-09: The system shall notify the requester of the outcome of a request. When the request is approved, the system shall support the subsequent recording of the transfer.
-•	FR-10: The system shall refuse the creation of a request when the requested quantity exceeds the quantity currently marked as available.
-A search limited to exact keywords would be too weak for practical use. Free-text matching, supported by local embeddings, makes the catalogue more useful. The approval step exists because departments need to retain control over their own equipment.
-3.3 Maintenance and Lifecycle Closure
-•	FR-11: Maintenance staff or an authorized custodian shall be able to record inspection, repair or service work against an asset, including the date, a description of the work and an optional updated condition.
-•	FR-12: Authorized staff shall be able to record that an asset has been donated, recycled or retired, and to close its active life cycle.
-Maintenance history improves later decisions about whether an item is worth repairing. Closing the life cycle cleanly prevents retired items from continuing to appear as available.
-3.4 AI-Supported Features
-The following features all depend on a local Ollama installation. They are assistive only; none of them is allowed to change the status of an asset without an explicit human action.
-•	FR-13: When a user supplies a free-text description of a need, the system shall return a ranked list of candidate resources by combining local embeddings with hard filters for availability, quantity, condition and location.
-•	FR-14: When a new asset is being registered, the system shall be able to suggest a category, a set of tags and a cleaned description. The user must be able to accept, edit or discard the suggestion.
-•	FR-15: For an existing asset the system shall be able to suggest a next life-cycle action chosen from the set {reuse/keep, transfer/share, repair, donate, recycle, retire}, based on the recorded condition and history. The suggestion is advisory only.
-•	FR-16: The system shall provide a natural-language assistant that can answer questions the user is permitted to ask, start a search, or begin a request, while always respecting the user’s role and permissions.
-•	FR-17: The system shall be able to generate a short narrative report from real database aggregates. The underlying numbers must come from queries; the language model is used only to turn those numbers into readable prose.
-These five capabilities correspond to the AI features required by the project brief. Keeping them local addresses the privacy and cost concerns identified in the feasibility study.
-3.5 Users, Access Control and Audit
-•	FR-18: The system shall authenticate users and enforce role-based access control. The roles used in the prototype are Administrator, Department Representative, Custodian, Requester and Maintenance Staff.
-•	FR-19: The system shall record, for every significant action, which user performed the action and when it occurred.
-Role-based access is simpler to reason about than per-user permissions for a course project. Audit records are needed both for accountability and for later investigation of the workflow.
-4. Non-Functional Requirements
-Non-functional requirements describe qualities of the system and constraints on how it is built or operated. They do not specify a particular feature, but they influence almost every design decision.
-4.1 Performance and Availability of Core Functions
-•	NFR-01: The core path (register an asset, search, submit a request, approve or reject, record a transfer) shall remain fully usable even when the local Ollama process is stopped or is responding slowly.
-•	NFR-02: Typical interactive AI operations (classification suggestion, semantic ranking of a moderate result set, a short assistant reply) should complete within approximately 10–15 seconds on a machine that can run a 7–8B model. Longer times are acceptable for report generation.
-•	NFR-03: The web interface shall remain responsive under the light concurrent load expected during a course demonstration.
-We deliberately made the core workflow independent of the AI components so that a slow or missing model does not freeze the application. The response-time target is a compromise between model quality and the patience of a user working on a laptop.
-4.2 Technology and Development Constraints
-•	NFR-04: The prototype shall be implemented using React with Vite for the front-end, FastAPI for the back-end, and PostgreSQL (or a compatible database) for persistence.
-•	NFR-05: AI features shall be provided by a local Ollama instance. The preferred generation models are llama3.1:8b or qwen2.5:7b; the preferred embedding model is nomic-embed-text. A smaller model may be documented as a fallback for low-RAM machines.
-•	NFR-06: Development and demonstration shall use sample or synthetic data unless the team obtains formal written permission to use real university records.
-4.3 Security and Privacy
-•	NFR-07: Access to asset records, requests and reports shall be restricted according to the user’s role and, where applicable, the user’s department.
-•	NFR-08: All AI inference for the prototype shall run locally via Ollama. Prompts and asset data shall not be sent to external network services as part of normal operation.
-•	NFR-09: Every significant state-changing action shall leave an audit record containing at least the actor identifier and a timestamp.
-•	NFR-10: User credentials shall not be stored in plain text.
-The local-AI decision is the strongest privacy measure we can take inside the course constraints. Role-based access and audit logging are the minimum controls needed to demonstrate responsible handling of shared resources.
-4.4 Usability
-•	NFR-11: A user who belongs to a given role should be able to reach the most common actions for that role within a small number of navigation steps from the main screen.
-•	NFR-12: Error messages shown to end users shall be written in ordinary language and, where possible, shall suggest how to correct the problem.
-•	NFR-13: The interface shall work in current versions of the major desktop browsers without requiring additional plugins.
-4.5 Reliability
-•	NFR-14: A failure of the Ollama process shall not corrupt asset or request data. The user shall be informed that AI assistance is temporarily unavailable and shall be able to continue with non-AI actions.
-•	NFR-15: The system shall not lose a successfully submitted request or a successfully recorded transfer because of a transient error that is later retried.
-
-
-
-
-
-5. Use Case Diagram and Detailed Use Cases
-This section follows the Phase 3 guidance. It presents one system-level use-case diagram and then a set of textual use cases. Each use case describes a goal that an actor wants to achieve and the sequence of steps that lead to that goal or to a controlled failure.
-5.1 Actors
-We identified five actors. In a larger institutional system there might be more specialized roles, but for the prototype these five cover the interactions we need.
-•	Requester — any authenticated user who needs a resource and is allowed to search and submit requests. In practice this will often be a staff member or a senior student working under supervision.
-•	Department Representative — the person who manages a department’s assets from the system’s point of view. They publish resources, review incoming requests and may record transfers.
-•	Custodian — someone closer to the physical items (for example a laboratory technician). They can register assets, update condition, publish availability and log maintenance.
-•	Maintenance Staff — users whose main task in the system is to record inspection and repair work. They may or may not also hold a custodian role.
-•	Administrator — a small number of users who manage accounts and roles, and who can step in for cross-department or escalated decisions.
-An actor is not necessarily a single human being. In principle another system could play the role of a requester, but in the current prototype all actors are human users working through the web interface.
- 
-5.2 System Use Case Diagram
-Figure 1 shows the single system use-case diagram. The large rectangle is the system boundary. Actors sit outside the boundary. Use cases sit inside it. A line indicates that the actor participates in the use case. AI capabilities are not drawn as separate actors; they are internal services that the system calls while executing certain use cases.
-
+•	Representative sample data (departments, assets, requests) is acceptable for development and the demo.
+•	Each asset has one owning department and one responsible custodian.
+•	Gemini API access and a test key are available; if not, the matching engine falls back to rule-based search (FR-AI-9).
+•	Carbon and waste factors for sustainability figures come from a published factor table agreed with the instructor [TBD-1].
+3. External Interface Requirements
+3.1 User Interfaces
+A responsive web interface with a role-based dashboard, top navigation (Assets, Marketplace, Requests, Approvals, Maintenance, Reports, Assistant) and a help link on every screen. Error messages appear next to the field in red text with a plain explanation. AI suggestions are always shown with a confidence value, a reason and Accept / Edit / Dismiss buttons.
+3.2 Hardware Interfaces
+No special hardware. Users need a computer or phone with a browser; photos may come from a phone or laptop camera upload.
+3.3 Software Interfaces
+•	PostgreSQL 15+ database for all records (assets, users, requests, transfers, history).
+•	Gemini API (classification, embeddings for matching, recommendations, assistant, report text), called only by the FastAPI backend.
+•	Email (SMTP) service for notification copies.
+3.4 Communications Interfaces
+HTTPS (TLS 1.2+) between browser and server; JSON over a REST API between the React front end and FastAPI; HTTPS to the Gemini API with the key kept on the server.
+4. System Features
+The system has 14 features with 82 functional requirements in total. Each feature gives its description and priority, its stimulus/response sequences and its numbered functional requirements.
+4.1 User Accounts and Access Control
+4.1.1 Description and Priority
+Users log in and act only within their role. Priority: High.
+4.1.2 Stimulus/Response Sequences
+•	User enters email and password → system opens the dashboard for that role.
+•	User enters a wrong password 5 times → system locks the account for 15 minutes.
+•	Administrator creates a user → system saves the account and roles.
+4.1.3 Functional Requirements
+ID	Requirement	Priority
+FR-ACC-1	The system shall let an administrator create, edit and deactivate user accounts with a name, university email, department and one or more roles.	M
+FR-ACC-2	The system shall authenticate users with university email and password before any other function is available.	M
+FR-ACC-3	The system shall check the user's role and department on every request and block actions outside the permission table (Section 2.3).	M
+FR-ACC-4	If a user enters a wrong password 5 times in a row, then the system shall lock the account for 15 minutes.	S
+FR-ACC-5	The system shall let an administrator manage departments, locations and asset categories.	M
+FR-ACC-6	When a session is idle for 30 minutes, the system shall log the user out.	S
+4.2 Asset Registration and Inventory
+4.2.1 Description and Priority
+Authorised users record each asset with its details, photos and documents. Priority: High.
+4.2.2 Stimulus/Response Sequences
+•	User fills the asset form → system shows an AI-suggested category and tags.
+•	User accepts or edits and saves → system stores the asset with a unique ID.
+•	User leaves a required field empty → system highlights it and does not save.
+4.2.3 Functional Requirements
+ID	Requirement	Priority
+FR-AST-1	The system shall record an asset's name, description, category, quantity, owning department, custodian, location, purchase date, estimated value (AED), condition (New, Good, Fair, Poor, Not working) and status.	M
+FR-AST-2	The system shall assign each new asset a unique asset ID.	M
+FR-AST-3	The system shall let the user attach up to 5 photos (JPG/PNG, max 5 MB each) and up to 5 documents (PDF, max 10 MB each).	S
+FR-AST-4	If a required field is missing or invalid, then the system shall not save the asset and shall highlight the field with an error message.	M
+FR-AST-5	The system shall let authorised users edit asset details and shall keep the previous values in the asset history.	M
+FR-AST-6	The system shall only change an asset's status along the transitions in Section 2.4 and shall reject any other change.	M
+4.3 Resource Publication (Marketplace)
+4.3.1 Description and Priority
+Departments list surplus or under-used assets so others can find them. Priority: High.
+4.3.2 Stimulus/Response Sequences
+•	User clicks "Publish as Surplus" → system sets the asset to Available and shows it in the marketplace.
+•	User clicks "Withdraw" → system removes the listing if it has no approved request.
+4.3.3 Functional Requirements
+ID	Requirement	Priority
+FR-PUB-1	The system shall let a department representative or authorised custodian publish an asset as Available, with an availability note and optional end date.	M
+FR-PUB-2	When an asset is published, the system shall show it in the marketplace to all logged-in users.	M
+FR-PUB-3	The system shall let the publisher withdraw a listing while it has no approved request.	M
+FR-PUB-4	When a listing reaches its end date with no request, the system shall notify the publisher and ask to extend, withdraw or propose a disposition.	C
+4.4 Search and Filtering
+4.4.1 Description and Priority
+Users find assets by keyword and filters before buying new ones. Priority: High.
+4.4.2 Stimulus/Response Sequences
+•	User types a keyword and picks filters → system lists matching assets.
+•	No asset matches → system shows "No matching assets" and offers to submit a request.
+4.4.3 Functional Requirements
+ID	Requirement	Priority
+FR-SRC-1	The system shall search assets by keyword in name, description and tags.	M
+FR-SRC-2	The system shall filter results by category, condition, department, location, quantity, availability, asset age, estimated value and life-cycle status.	M
+FR-SRC-3	The system shall sort results by relevance, newest listing, condition or distance from the requester's location.	S
+FR-SRC-4	When no result is found, the system shall show a "No matching assets" message and offer to submit a resource request.	M
+FR-SRC-5	The system shall show only fields the user's role may see (estimated value is hidden from Requesters).	M
+4.5 Resource Requests and Reservations
+4.5.1 Description and Priority
+Users ask for a specific asset or describe a need for the system to match. Priority: High.
+4.5.2 Stimulus/Response Sequences
+•	Requester clicks "Request" on a listing → system saves the request, reserves the asset and notifies the owning department.
+•	Requester clicks "Cancel" before approval → system cancels the request and releases the asset.
+•	Reservation passes 3 working days → system expires it.
+4.5.3 Functional Requirements
+ID	Requirement	Priority
+FR-REQ-1	The system shall let a user submit a request with category, purpose, specifications, quantity, preferred condition, urgency (Low, Medium, High), delivery location and required date.	M
+FR-REQ-2	The system shall let a user request a specific listed asset, which reserves it for 3 working days pending approval.	M
+FR-REQ-3	If the listed asset is already reserved, then the system shall add the request to a queue in order of submission time.	S
+FR-REQ-4	The system shall let the requester view the current state (Section 2.4) and history of each of their requests.	M
+FR-REQ-5	The system shall let the requester cancel a request before it is approved, releasing any reservation.	M
+FR-REQ-6	When a reservation passes 3 working days without a decision, the system shall expire it and release the asset.	S
+4.6 Approval Workflow
+4.6.1 Description and Priority
+Every transfer and end-of-life action needs a named approver. Priority: High.
+4.6.2 Stimulus/Response Sequences
+•	Representative clicks "Approve" → system sets the request Approved and schedules a transfer.
+•	Representative clicks "Reject" with a reason → system notifies the requester and suggests alternatives.
+4.6.3 Functional Requirements
+ID	Requirement	Priority
+FR-APR-1	The system shall send each request to the department representative of the owning department for approval.	M
+FR-APR-2	The system shall let the approver approve or reject a request; a rejection shall require a reason.	M
+FR-APR-3	If a request is rejected, then the system shall notify the requester with the reason and show up to 3 alternative available assets.	S
+FR-APR-4	The system shall not allow a transfer to be recorded for a request that is not Approved.	M
+FR-APR-5	The system shall route donation, recycling and disposal proposals to a sustainability officer for approval.	M
+FR-APR-6	Where the asset value is above a set limit (default AED 20,000 [TBD-2]), the system shall also require administrator approval.	C
+4.7 Transfer Management
+4.7.1 Description and Priority
+Records the physical move and the change of owner, custodian and location. Priority: High.
+4.7.2 Stimulus/Response Sequences
+•	Sender clicks "Mark Dispatched" → system sets the asset In Transfer and notifies the receiver.
+•	Receiver confirms receipt → system updates owner, custodian, location and status.
+•	Receiver reports damage → system marks the transfer Disputed.
+4.7.3 Functional Requirements
+ID	Requirement	Priority
+FR-TRF-1	When a request is approved, the system shall create a transfer record in Scheduled state with collection or delivery method and date.	M
+FR-TRF-2	The system shall let the sending side mark the transfer Dispatched.	M
+FR-TRF-3	The system shall let the receiving custodian confirm receipt and the asset's condition on arrival.	M
+FR-TRF-4	When receipt is confirmed, the system shall update the asset's owning department, custodian, location and status to In Use.	M
+FR-TRF-5	The system shall let users attach handover documents (PDF/image) to a transfer.	S
+FR-TRF-6	If the receiver reports the asset damaged or missing, then the system shall mark the transfer Disputed and notify both departments.	S
+4.8 Maintenance and Repair
+4.8.1 Description and Priority
+Defects, inspections and repairs are logged against the asset. Priority: Medium.
+4.8.2 Stimulus/Response Sequences
+•	Custodian reports a defect → system sets the asset Under Maintenance and notifies maintenance staff.
+•	Maintenance staff mark the job Resolved → system updates the condition and returns the asset to service.
+4.8.3 Functional Requirements
+ID	Requirement	Priority
+FR-MNT-1	The system shall let a custodian or any user holding the asset report a defect with a description and optional photo.	M
+FR-MNT-2	When a defect is reported, the system shall set the asset to Under Maintenance and notify maintenance staff.	M
+FR-MNT-3	The system shall let maintenance staff record inspection results, repair actions, parts used, cost (AED) and dates.	M
+FR-MNT-4	When a repair is resolved, the system shall require an updated condition and return the asset to its previous status.	M
+FR-MNT-5	If an asset is marked Not Repairable, then the system shall request a sustainable-action recommendation (FR-AI-10).	S
+4.9 End-of-Life Actions
+4.9.1 Description and Priority
+Donation, recycling, disassembly and disposal are recorded with approval. Priority: Medium.
+4.9.2 Stimulus/Response Sequences
+•	Representative proposes an end-of-life action → system sets Pending Disposition and asks the sustainability officer.
+•	Officer approves and completion is recorded → system sets the final state.
+4.9.3 Functional Requirements
+ID	Requirement	Priority
+FR-EOL-1	The system shall let a department representative propose donation, disassembly for parts, recycling or disposal of an asset with a reason.	M
+FR-EOL-2	The system shall set the asset to Pending Disposition until a sustainability officer approves or rejects the proposal.	M
+FR-EOL-3	When the proposal is approved and completed, the system shall record the recipient or vendor, date and certificate (if any) and set the final state.	M
+FR-EOL-4	The system shall keep final-state assets read-only and visible in history and reports.	M
+4.10 Life-Cycle History and Audit
+4.10.1 Description and Priority
+Every important event is kept so an asset's full story can be followed. Priority: High.
+4.10.2 Stimulus/Response Sequences
+•	Any recorded action → system adds a history and audit entry.
+•	User opens an asset's History tab → system shows the timeline.
+•	Administrator searches the audit log → system lists matching entries.
+4.10.3 Functional Requirements
+ID	Requirement	Priority
+FR-AUD-1	The system shall record every life-cycle event (registration, allocation, edit, reservation, transfer, inspection, repair, refurbishment, donation, recycling, disposal) with date/time, user and old/new values.	M
+FR-AUD-2	The system shall show an asset's history as a timeline, newest first.	M
+FR-AUD-3	The system shall not let any user edit or delete history or audit entries.	M
+FR-AUD-4	The system shall log every AI recommendation with model name and version, input summary, output, confidence and the user's final decision.	M
+FR-AUD-5	The system shall let an administrator search the audit log by user, asset, action and date range.	S
+4.11 Notifications
+4.11.1 Description and Priority
+Users are told when something they are involved in changes. Priority: Medium.
+4.11.2 Stimulus/Response Sequences
+•	A request, approval, transfer or maintenance job changes state → system notifies the affected users in-app and by email.
+•	A new listing matches an open request → system notifies the requester.
+4.11.3 Functional Requirements
+ID	Requirement	Priority
+FR-NOT-1	When a request, approval, transfer, maintenance or end-of-life record changes state, the system shall send an in-app notification to the affected users.	M
+FR-NOT-2	The system shall also send an email copy of each notification unless the user has turned email off.	S
+FR-NOT-3	When a new listing has a match score of 0.75 or more for an open request, the system shall notify the requester.	S
+4.12 Operational Reports
+4.12.1 Description and Priority
+Standard reports for managing assets and workflows. Priority: Medium.
+4.12.2 Stimulus/Response Sequences
+•	Administrator picks a report type, department and dates → system builds the report.
+•	Administrator clicks "Export" → system downloads a PDF or CSV.
+4.12.3 Functional Requirements
+ID	Requirement	Priority
+FR-RPT-1	The system shall generate reports of available assets, open requests, completed transfers, maintenance history, ownership changes, approvals and asset status, filterable by department and date range.	M
+FR-RPT-2	The system shall export any report to PDF and CSV.	S
+4.13 AI-Enhanced Features
+4.13.1 Description and Priority
+Five AI features advise users: classification, matching, sustainable-action recommendation, the assistant and generated reports. None makes a final decision. Priority: High (required by the project brief), built after the core workflow.
+4.13.2 Stimulus/Response Sequences
+•	User enters an asset name and description → system suggests a category and tags.
+•	Requester submits a need → system shows the top 5 matches with scores and reasons.
+•	Asset is marked Not Repairable or proposed for end of life → system recommends an action.
+•	User types a question → assistant answers within the user's permissions.
+•	AI Service does not answer within 10 seconds → system falls back to rule-based results.
+4.13.3 Functional Requirements
+ID	Requirement	Priority
+FR-AI-1	Classification. When a user enters an asset's name and description, the system shall suggest a category, subcategory, up to 8 tags, material type and a standard description.	M
+FR-AI-2	The system shall show each classification suggestion with a confidence value and shall save it only after the user accepts or edits it.	M
+FR-AI-3	The system shall list fields the AI finds missing (e.g. no model number) as prompts to the user.	C
+FR-AI-4	Matching. The system shall compare a request with available assets by meaning, not only exact keywords.	M
+FR-AI-5	Before scoring, the system shall exclude assets that fail hard rules: not Available, quantity too low, or condition below the requested minimum.	M
+FR-AI-6	The system shall give each asset–request pair a compatibility score from 0 to 1 using category, purpose, specifications, quantity, condition, location, urgency, required date, transfer cost and repair cost.	M
+FR-AI-7	The system shall show the top 5 matches ranked by score, each with a plain-language reason naming its 2–3 main factors.	M
+FR-AI-8	The system shall rank matches with equal suitability higher when they give more waste diversion or carbon reduction.	S
+FR-AI-9	If the AI service fails or times out after 10 seconds, then the system shall fall back to rule-based keyword search and tell the user AI ranking is unavailable.	M
+FR-AI-10	Sustainable action. The system shall recommend one of: retain, transfer, repair, refurbish, donate, disassemble for parts, recycle or dispose, with a reason and confidence.	M
+FR-AI-11	The system shall never change an asset's state from an AI recommendation without an authorised user's approval.	M
+FR-AI-12	If a recommendation's confidence is below 0.6, then the system shall label it "Low confidence – review carefully".	S
+FR-AI-13	Assistant. The system shall let users ask questions in English (Arabic: C) to search assets, start a request, check status, view asset history and get policy guidance.	M
+FR-AI-14	The assistant shall only return data and run actions the user is permitted to see or do, using the same permission checks as the normal screens.	M
+FR-AI-15	Before the assistant submits a request on the user's behalf, the system shall show a summary and require the user to confirm.	M
+FR-AI-16	Generative reports. The system shall produce a monthly narrative report on exchanges, maintenance trends, avoided purchases, savings, waste diversion, carbon reduction, high-demand categories and suggested actions.	M
+FR-AI-17	Every number in a generated report shall come from database totals computed by the system; the AI writes only the narrative.	M
+FR-AI-18	The system shall let any user override or dismiss an AI suggestion, and shall record the override (FR-AUD-4).	M
+4.14 Sustainability Measurement
+4.14.1 Description and Priority
+Measures the environmental and financial value of reuse. Priority: Medium.
+4.14.2 Stimulus/Response Sequences
+•	Transfer completes → system asks whether it replaced a planned purchase.
+•	Sustainability officer opens the dashboard → system shows savings, waste diverted, CO2e and reuse rate by department and month.
+4.14.3 Functional Requirements
+ID	Requirement	Priority
+FR-SUS-1	When a request is fulfilled by reuse, the system shall ask whether it replaced a planned purchase and record that as an avoided purchase.	M
+FR-SUS-2	The system shall compute financial savings as the estimated replacement cost of avoided purchases minus transfer and repair costs (AED).	M
+FR-SUS-3	The system shall compute waste diverted (kg) from each reused, repaired, donated or recycled asset, using a weight per category.	S
+FR-SUS-4	The system shall estimate carbon reduction (kg CO2e) using an emission factor per category from the agreed factor table [TBD-1], shown as an estimate with its source.	S
+FR-SUS-5	The system shall compute reuse rate (fulfilled-by-reuse requests ÷ all fulfilled requests) and asset-life extension (years added by reuse or repair).	S
+FR-SUS-6	The system shall show these indicators on a dashboard by department and month.	M
+5. Other Nonfunctional Requirements
+Each quality requirement has a measurable target so it can be tested in Phase 7 (lecture rule: if you can't test it, it isn't a requirement yet). Load targets assume the prototype's expected peak of 100 concurrent users [TBD-3].
+5.1 Performance Requirements
+ID	Requirement	Priority
+NFR-1	95% of keyword searches and filter changes shall return results within 2 seconds with 100 concurrent users.	M
+NFR-2	95% of AI match lists shall be returned within 8 seconds; after 10 seconds the fallback in FR-AI-9 applies.	M
+NFR-3	Saving an asset, request or approval shall complete within 2 seconds for 95% of attempts.	M
+NFR-4	A monthly generated report shall be produced within 60 seconds.	S
+5.2 Safety Requirements
+ID	Requirement	Priority
+NFR-5	The system shall require a confirmation dialog before any irreversible action (final disposal, recycling, account deactivation).	M
+NFR-6	Assets flagged as hazardous (e.g. batteries, chemicals, lab equipment) shall require a safety-inspection record before transfer, donation or disposal can be approved.	S
+NFR-7	The core workflow (register, search, request, approve, transfer) shall remain usable when the AI service is unavailable.	M
+5.3 Security Requirements
+ID	Requirement	Priority
+NFR-8	Passwords shall be stored only as salted hashes (bcrypt or Argon2).	M
+NFR-9	All traffic between browser and server shall use HTTPS (TLS 1.2 or later).	M
+NFR-10	100% of tested unauthorised actions (all roles against restricted functions) shall be blocked, including through the assistant.	M
+NFR-11	API keys for the AI service shall be kept in server-side environment settings, never in source code or the browser.	M
+NFR-12	Only the minimum data needed shall be sent to the AI service; no passwords, personal phone numbers or financial account details.	M
+NFR-13	Audit entries shall be kept for at least 3 years and shall be append-only.	S
+NFR-14	Personal data handling shall follow university policy and the UAE PDPL (Decree-Law 45/2021).	S
+5.4 Software Quality Attributes
+ID	Attribute	Requirement	Priority
+NFR-15	Usability	At least 80% of first-time test users shall register an asset and submit a request without help, each task in under 5 minutes.	M
+NFR-16	Accessibility	All pages shall meet WCAG 2.2 level AA and be usable by keyboard only.	S
+NFR-17	Availability	The prototype shall be available 99% of the time during the demo and testing weeks (8:00–20:00).	S
+NFR-18	Reliability	No committed transaction shall be lost; the database shall be backed up daily and restorable within 4 hours.	M
+NFR-19	Maintainability	AI features shall sit in a separate service module so the AI provider can be replaced without changing other modules.	M
+NFR-20	Testability	Each Must requirement shall have at least one automated or documented test case linked to its ID.	M
+NFR-21	AI quality	At least 70% of 20 prepared test requests shall have a relevant asset in the top 3 matches.	M
+NFR-22	AI quality	At least 80% of 10 test assets shall receive the correct category from the AI classifier.	M
+NFR-23	AI quality	Generated reports shall contain 0 numbers that differ from the database totals in 5 tested reports.	M
+NFR-24	Explainability	100% of shown matches and recommendations shall include a reason and a confidence value.	M
+NFR-25	Fairness	Over the test set, top-3 match relevance shall not differ by more than 15 percentage points between requesting departments.	C
+NFR-26	Portability	The UI shall work on screens from 360 px (phone) to 1920 px wide.	S
+5.5 Business Rules
+ID	Rule
+BR-1	An asset belongs to exactly one department and has exactly one custodian at any time.
+BR-2	No asset may change department without an Approved request and a confirmed receipt.
+BR-3	A user may not approve their own request.
+BR-4	Only the owning department's representative (or an administrator) approves a transfer of that department's asset.
+BR-5	Donation, recycling and disposal require sustainability-officer approval; disposal is the last option after reuse, repair, donation and recycling are ruled out.
+BR-6	AI output is advisory only; the approving user is accountable for the decision.
+BR-7	A reservation holds an asset for at most 3 working days without a decision.
+BR-8	Final-state assets (Donated, Recycled, Disposed) cannot be reactivated.
+BR-9	Before a purchase request is raised, procurement shall check the marketplace for a match (supported by FR-AI-4).
+6. Use Cases
+The system has 22 use cases, and every one of the 82 functional requirements is covered by at least one of them (full map in 7.4). Section 6.1 lists them; 6.2 gives each use case its own diagram and description; 6.3 combines them all in one diagram.
+6.1 Use-Case List
+ID	Use case	Primary actor (initiator)	Secondary actors	FRs covered
+UC-1	Log In	Campus User	—	FR-ACC-2, 3, 4, 6
+UC-2	Register Asset	Department Representative / Custodian	AI Service	FR-AST-1, 2, 3, 4, 6
+UC-3	Classify Asset with AI («include» of UC-2)	—	AI Service	FR-AI-1, 2, 3, 18
+UC-4	Publish Surplus Asset	Department Representative / Custodian	—	FR-PUB-1, 2; FR-NOT-3
+UC-5	Search Assets	Campus User	—	FR-SRC-1–5
+UC-6	Submit Resource Request	Requester	Department Representative	FR-REQ-1, 2, 3; FR-NOT-1, 2
+UC-7	Match Assets with AI («include» of UC-6)	—	AI Service	FR-AI-4–9, 18
+UC-8	Review Request	Department Representative	Requester, Notification Service	FR-APR-1, 2, 3, 4, 6; FR-TRF-1
+UC-9	Record Transfer	Department Representative	Asset Custodian	FR-TRF-1–6; FR-SUS-1
+UC-10	Record Maintenance	Maintenance Staff	Asset Custodian	FR-MNT-2, 3, 4, 5
+UC-11	Process End-of-Life Action	Department Representative	Sustainability Officer	FR-EOL-1–4; FR-APR-5
+UC-12	Recommend Sustainable Action («include» of UC-11, «extend» of UC-10)	—	AI Service	FR-AI-10, 11, 12, 18
+UC-13	Ask AI Assistant	Campus User	AI Service	FR-AI-13, 14, 15
+UC-14	Generate Sustainability Report	Sustainability Officer	Procurement/Finance Officer, AI Service	FR-AI-16, 17; FR-SUS-2–6
+UC-15	Manage Users and Roles	System Administrator	—	FR-ACC-1, 5
+UC-16	Edit Asset	Department Representative / Custodian	—	FR-AST-5, 6
+UC-17	Withdraw Listing	Department Representative / Custodian	—	FR-PUB-3, 4
+UC-18	Track or Cancel Request	Requester	—	FR-REQ-4, 5, 6
+UC-19	Report Defect	Asset Custodian	Maintenance Staff	FR-MNT-1, 2
+UC-20	View Asset History	Campus User	—	FR-AUD-1, 2, 3
+UC-21	View Audit Log	System Administrator	—	FR-AUD-3, 4, 5
+UC-22	Generate Operational Report	System Administrator	—	FR-RPT-1, 2
+6.2 Use-Case Diagrams and Descriptions
+UC-1: Log In
  
-Figure 1: System Use Case Diagram
-The diagram is intentionally simple. Its purpose is to show, at a glance, which actors take part in which goals. The detailed behaviour of each goal is given in the textual use cases that follow. If a more formal UML drawing is needed for a presentation, the same actors and use-case names can be redrawn in a modelling tool.
- 
-5.3 Detailed Use Cases
-Each use case below follows the structure illustrated in the Phase 3 slides: name, actors, preconditions, trigger, main flow, alternative flows, exception flows and post conditions. A short paragraph of explanation is added after some of the use cases where the reasoning behind a decision may not be obvious from the steps alone.
-UC-01: Register Asset
-Actors: Department Representative or Custodian (primary). An Administrator may also register assets if needed.
-Preconditions: The actor is authenticated and has permission to register assets for the relevant department. A unique identifier is either supplied by the user or generated by the system.
-Trigger: The actor selects the Register Asset action from the asset-management area of the interface.
-Main Flow:
-1.	The actor opens the registration form.
-2.	The system presents empty fields for identifier, title or short description, category, condition, quantity, location, owning department and optional free-text notes.
-3.	The actor fills in the information that is already known. If help with classification is wanted, the actor may request an AI suggestion.
-4.	If an AI suggestion is requested, the system sends the free-text description to the local Ollama model and receives a proposed category, a set of tags and a cleaned description.
-5.	The actor accepts the suggestion as it stands, edits any part of it, or discards it and continues with manually entered values.
-6.	The actor submits the completed form.
-7.	The system validates that all mandatory fields are present and that the identifier is unique within the system.
-8.	The system creates the asset record and writes an initial history entry that records who registered the asset and when.
-9.	The system displays a confirmation message that includes the new asset identifier.
-Alternative Flows:
-•	If the actor never requests an AI suggestion, steps 4 and 5 are skipped and the flow continues from step 6 with purely manual data.
-•	If the Ollama service does not respond within an acceptable time, the system informs the actor that AI assistance is temporarily unavailable and allows the registration to continue with manual entry.
-Exception Flows:
-•	If validation fails (a required field is empty or the identifier already exists), the system highlights the problem fields, retains the data the actor has already typed, and returns the actor to the form so that corrections can be made.
-Postconditions:
-•	A new asset record exists in the database.
-•	An initial history entry has been stored.
-•	The asset is not yet visible to requesters; visibility requires a separate publish action (UC-02).
-We kept the AI suggestion optional and easy to override. Classification models are helpful for consistency of language, but they are not always correct for specialised laboratory equipment. Leaving the final choice with the human user reduces the risk that systematically wrong categories will spread through the catalogue.
- 
-UC-02: Publish Available Resource
-Actors: Department Representative or Custodian (primary).
-Preconditions: The asset already exists in the system and is not in a terminal state (retired, donated or recycled). The actor has permission to change the availability of assets belonging to that department.
-Trigger: The actor selects an asset and chooses the Publish or Mark Available action.
-Main Flow:
-10.	The actor selects the target asset from a list or from a previous search.
-11.	The system displays the current status of the asset and a short form that lets the actor set the available quantity and add any usage notes or restrictions.
-12.	The actor confirms the quantity and any notes.
-13.	The system updates the availability status of the asset and appends a history entry that records the publication.
-14.	The system confirms that the resource is now visible to users who are permitted to see it.
-Alternative Flows:
-•	The actor may choose to publish only a portion of the total quantity. In that case the system stores the available quantity separately from the total quantity owned by the department.
-Exception Flows:
-•	If the asset is already published, or if it has already been moved to a terminal lifecycle state, the system informs the actor and does not alter any data.
-Postconditions:
-•	The asset (or the stated quantity) can appear in search results for eligible requesters.
-•	A history entry records the publication event.
-Publishing is intentionally a separate step from registration. Not every registered asset should automatically be offered for sharing. Some items are intended for internal use only, and some are still being prepared or repaired. Keeping the two actions distinct gives the department control over what is visible to the rest of the campus.
- 
-UC-03: Search Resources
-Actors: Requester (primary). Department Representatives and Custodians may also search, for example to check what they have already published.
-Preconditions: The actor is authenticated. At least one asset has been published as available; otherwise the result list will simply be empty.
-Trigger: The actor opens the search page or submits a search query from another part of the interface.
-Main Flow:
-15.	The actor enters search criteria. These may include structured filters (category, location, condition) and/or a free-text description of the need.
-16.	The system identifies the set of assets that are currently marked available and that the actor is authorized to view.
-17.	If a free-text description was supplied, the system obtains a vector embedding of the query from the local embedding model, ranks the candidate assets by similarity, and then applies the hard filters for availability, quantity, condition and location.
-18.	The system presents the resulting list. Each entry shows enough information (title, category, condition, location, available quantity and a short description) for the actor to decide whether to examine the item further or to start a request.
-19.	The actor may select any result to view full details or to begin the Request Resource use case (UC-04).
-Alternative Flows:
-•	If the actor supplies only structured filters and no free-text, the system skips the embedding step and returns a filtered list ordered by a simple default such as most recently published.
-•	If the embedding service is unavailable, the system falls back to ordinary keyword matching against title and description fields and displays a notice that semantic ranking is temporarily turned off.
-Exception Flows:
-•	If the search produces no results, the system states this clearly and may offer simple suggestions such as removing a filter or broadening the free-text query.
-Postconditions:
-•	The actor has been shown a list of candidate resources (which may be empty).
-•	No request has been created; that requires a separate use case.
-Making the semantic ranking an enhancement rather than a hard dependency is important. On a laptop with limited resources the embedding step can take a few seconds. Users should still be able to locate resources with ordinary filters if the model is slow or missing.
- 
-UC-04: Request Resource
-Actors: Requester (primary). The Department Representative or Administrator becomes involved later when the request is decided.
-Preconditions: The actor is authenticated and has the Requester role (or a higher role that includes requesting). The target asset is currently marked available and has sufficient remaining quantity.
-Trigger: The actor selects an available asset and chooses Request or Reserve.
-Main Flow:
-20.	The actor views the asset details and starts a request.
-21.	The system presents a short form asking for the request type (reservation or transfer), the quantity, the desired period or start date, and an optional justification.
-22.	The actor completes the form and submits it.
-23.	The system re-checks that the asset is still available and that the requested quantity does not exceed the available quantity.
-24.	The system creates a request record with status Pending and writes an audit entry.
-25.	The system notifies the responsible Department Representative (and the Administrator if an escalation rule applies).
-26.	The system shows the requester a confirmation page that includes the request identifier.
-Alternative Flows:
-•	If the actor abandons the form before submitting, no request is stored and the use case ends.
-Exception Flows:
-•	If between the moment the actor opened the form and the moment of submission the asset became unavailable, the system refuses to create the request and explains the reason.
-•	If the requested quantity is higher than the available quantity, the system shows the current available number and asks the actor to reduce the request.
-Postconditions:
-•	A Pending request exists in the system.
-•	The decision-maker has been notified.
-•	The requester has received a confirmation containing the request identifier.
-We discussed whether a Pending request should automatically reduce the visible available quantity. For the prototype we lean toward a temporary reservation, but the exact rule can be adjusted during implementation. The important point is that two people should not both receive approval for the last remaining unit of an item.
- 
-UC-05: Approve or Reject Request
-Actors: Department Representative or Administrator (primary). The original Requester receives the outcome.
-Preconditions: A request with status Pending exists. The actor has permission to decide requests for the owning department (or holds Administrator privileges).
-Trigger: The actor opens a pending request from the approval queue or from a notification.
-Main Flow:
-27.	The actor reviews the request details, the current state of the asset, and any justification supplied by the requester.
-28.	The actor chooses Approve or Reject and may type a short comment.
-29.	The system records the decision, the identity of the actor, the timestamp and the optional comment.
-30.	The system updates the status of the request.
-31.	The system notifies the original requester of the outcome.
-32.	If the decision was Approve, the system indicates that the transfer can now be recorded (UC-06).
-Alternative Flows:
-•	The actor may request more information instead of deciding immediately. In that case the request remains Pending, a comment is stored, and the requester is notified.
-Exception Flows:
-•	If at the moment of decision the asset is no longer available, the system warns the actor and prevents approval until the conflict is resolved.
-Postconditions:
-•	The request status is either Approved or Rejected.
-•	An audit entry for the decision exists.
-•	The requester has been informed of the outcome.
-Keeping the decision with a human is intentional. Even if a later version of the system offered an AI recommendation on whether to approve, the actual approve or reject action should remain with a person who understands the department’s current priorities and constraints.
- 
-UC-06: Record Transfer
-Actors: Department Representative, Custodian or Administrator (primary).
-Preconditions: There is an approved request linked to the asset. The actor has permission to record transfers.
-Trigger: The actor selects an approved request and chooses Record Transfer.
-Main Flow:
-33.	The actor confirms the asset, the receiving person or department, and the date of the handover.
-34.	The actor may add a short note about the physical condition at handover or any accessories that were included.
-35.	The actor confirms the transfer.
-36.	The system updates the asset’s ownership or location fields and adjusts the available quantity.
-37.	The system appends a history entry describing the transfer.
-38.	The system sets the request status to Completed.
-39.	The system displays a confirmation to the actor.
-Exception Flows:
-•	If mandatory confirmation data is missing, the system asks for the missing pieces before it will save the transfer.
-Postconditions:
-•	The asset record reflects the new ownership or location.
-•	The history contains a transfer event.
-•	The related request is marked Completed.
-In a real campus setting the physical handover might involve a paper form or a signature. For the prototype we only record that the transfer was acknowledged inside the system. Adding digital signatures or photographic evidence is a possible later enhancement, but it is not required for the course demonstration.
- 
-UC-07: Log Maintenance
-Actors: Maintenance Staff or Custodian (primary).
-Preconditions: The asset exists. The actor has permission to add maintenance records for it.
-Trigger: The actor selects an asset and chooses Log Maintenance.
-Main Flow:
-40.	The actor opens the maintenance form for the chosen asset.
-41.	The actor enters the type of work (inspection, repair, routine service, or other), the date, a free-text description, and optionally a new condition rating.
-42.	The actor submits the form.
-43.	The system checks that the required fields are present.
-44.	The system stores the maintenance record and links it to the asset’s history.
-45.	If a new condition rating was supplied, the system updates the condition field on the asset.
-46.	The system confirms that the entry was saved.
-Exception Flows:
-•	If validation fails, the system indicates which fields are missing or invalid and lets the actor correct them.
-Postconditions:
-•	A maintenance record exists and is visible in the asset’s history.
-•	The asset’s condition field reflects the latest supplied rating, if any.
-Maintenance data is useful both for human decision makers and for the AI lifecycle-suggestion feature. Even short free-text notes help later when someone is trying to decide whether an item is still worth repairing or should be retired.
- 
-UC-08: Suggest Lifecycle Action
-Actors: Department Representative, Custodian or Administrator (primary).
-Preconditions: The asset exists and has at least a condition value and some history. The actor is allowed to view the asset. The local Ollama service is reachable; otherwise the use case reports unavailability.
-Trigger: The actor opens an asset and selects Suggest next action or an equivalent command.
-Main Flow:
-47.	The system collects a compact summary of the asset: category, current condition, age or key history points, current status, and recent maintenance.
-48.	The system sends that summary to the local chat model with instructions to return one action from the allowed set {reuse/keep, transfer/share, repair, donate, recycle, retire} together with a short justification.
-49.	The system receives the model’s reply and displays the suggested action and the reason, together with a clear statement that the suggestion is only advice.
-50.	The actor may ignore the suggestion or may navigate to the appropriate update, publish or lifecycle-closure action if they decide to follow it.
-Alternative Flows:
-•	If the model returns an action outside the allowed set, or returns text that cannot be parsed reliably, the system discards the reply and tells the actor that a reliable suggestion could not be produced.
-Exception Flows:
-•	If the asset has almost no history or condition data, the system informs the actor that more information is needed before a suggestion can be offered.
-•	If Ollama does not respond, the system informs the actor that the suggestion service is temporarily unavailable. All other asset operations remain open.
-Postconditions:
-•	Either a suggestion has been shown to the actor, or a clear unavailability or insufficient-data message has been shown.
-•	No change has been made to the asset’s status solely because of the suggestion.
-This use case is the clearest illustration of the principle we adopted in the feasibility study: the AI may recommend, but a human decides. The allowed action vocabulary is kept small and closed so that the model cannot invent statuses that the rest of the system does not understand.
- 
-UC-09: Generate Report
-Actors: Administrator or Department Representative (primary).
-Preconditions: The actor has permission to view the metrics for the chosen scope (whole system or a single department). Enough transactional data exists to compute at least some totals.
-Trigger: The actor chooses Generate Report, selects a report type and a time range, and confirms.
-Main Flow:
-51.	The system runs the database queries that calculate the required aggregates (for example number of completed transfers, number of maintenance events, number of assets published, or rough estimates of avoided purchases if such figures are stored).
-52.	The system constructs a prompt that contains only the calculated numbers and a clear instruction to produce a short, neutral narrative that does not introduce any figures that were not supplied.
-53.	The system sends the prompt to the local chat model and receives the generated text.
-54.	The system displays the narrative and the raw numbers together so that the actor can see the basis of the text.
-55.	The actor may copy the text or export it for use in a meeting or a progress report.
-Alternative Flows:
-•	If the language model is unavailable, the system still shows the raw metrics and adds a note that the narrative could not be generated. The use case is still considered successful with respect to data presentation.
-Exception Flows:
-•	If the chosen period contains no relevant records, the system tells the actor that there is nothing to report and does not call the language model.
-Postconditions:
-•	The actor has been shown a set of figures that originate from the database, optionally accompanied by a narrative that does not invent extra numbers.
-The strict separation between numbers taken from the database and wording produced by the model is deliberate. It makes the report feature safer to demonstrate and easier to defend if someone asks whether the AI is inventing statistics.
-6. Data Considerations
-At the requirements level we do not need a full database schema, but we do need to be clear about the main concepts the system must remember. The following conceptual entities are required to support the use cases described above.
-•	User — identity, authentication credentials (stored safely), role or roles, and department affiliation where relevant.
-•	Asset — unique identifier, description, category, condition, total quantity, available quantity, location, owning department, current status, and timestamps for creation and last update.
-•	AssetHistory — a sequence of events linked to an asset. Each event has a type, an actor, a timestamp, and optional structured or free-text details.
-•	Request — link to the requester, link to the asset, requested quantity, request type, status (Pending / Approved / Rejected / Completed), justification, decision comment, and timestamps.
-•	MaintenanceRecord — link to the asset, type of work, date, description, optional new condition, and the actor who logged it.
-We prefer soft status changes over hard deletion. Once an asset has history, removing the row entirely would destroy information that later lifecycle or reporting features need. The same idea applies to requests: a rejected or completed request should remain in the database for audit purposes.
-For the AI search feature we will also need to store or compute embeddings of asset descriptions. Whether those vectors live in the main PostgreSQL database or in a lightweight side store is a design decision; the requirement is simply that the search use case can obtain them when needed.
-7. User Interface Considerations
-The Phase 3 guidance does not require a full set of screen mock-ups, but it is still useful to state the main expectations so that the later design phase has a starting point.
-The interface will be a web application. After login the user should see a simple home view whose content depends on their role. A Requester should see search and “my requests” prominently. A Department Representative should see pending approvals and a shortcut to their department’s assets. An Administrator should see user-management functions and system-level reports.
-Forms should be short and should use ordinary labels. When the system can offer an AI suggestion (for example during registration), the suggestion should appear as a clearly marked optional aid, never as a mandatory step. Error messages should be written in plain language. For example, “This identifier is already used by another asset” is preferable to a raw database constraint error.
-Because we are not targeting mobile phones as a primary platform, the layout can assume a reasonable desktop or laptop screen width. Responsive behaviour that keeps the application usable on a tablet is desirable but is not a top priority for the first prototype.
-8. Local AI Features – Further Discussion
-The project brief requires five AI-related capabilities. In the feasibility study we decided that all of them would run through a local Ollama instance. This section gathers the main points in one place.
-8.1 Why Local
-Three considerations led us to a local-only approach. First, privacy: asset descriptions and user queries may contain information that the university would prefer not to send to an external commercial service. Second, cost and dependency: a student project should not rely on a paid API key that might expire or whose terms might change. Third, demonstrability: we can show the complete system on a laptop without needing internet access for the AI part.
-The price of that decision is a limit on model size. On a machine with 16 GB of RAM we can run 7–8B parameter models with acceptable speed. Larger models become slow or fail to load. That is why the preferred generation models are llama3.1:8b and qwen2.5:7b, and why the preferred embedding model is nomic-embed-text, which is small and effective for retrieval tasks.
-8.2 Mapping of AI Features to Use Cases
-•	Semantic resource matching is used inside UC-03.
-•	Asset classification is used inside UC-01.
-•	Lifecycle suggestion is the whole of UC-08.
-•	The natural-language assistant is a cross-cutting capability covered by FR-16; its detailed interaction design will be worked out in the design phase.
-•	Generative reporting is the whole of UC-09.
-In every case the AI output is either a suggestion that the user can edit or a narrative that is explicitly grounded in database numbers. No AI output is permitted to change the status of an asset by itself.
-8.3 Behaviour when the Model is Unavailable
-If Ollama is not running, or if a request to it times out, the system must degrade gracefully. Search falls back to keyword matching. Registration continues with manual entry. Lifecycle suggestion and narrative report generation simply inform the user that the service is unavailable. The core register–request–approve–transfer path never blocks on the language model.
-9. Open Issues and Traceability
-9.1 Open Issues
-A few decisions remain open. They do not prevent design from starting, but they should be settled explicitly rather than left to individual implementers.
-•	Asset identifier format — should identifiers be system-generated UUIDs, or should departments be allowed to supply their own codes (for example “CHEM-2024-017”)?
-•	Reservation versus availability — when a request is created with status Pending, should the available quantity be reduced immediately, or only after approval?
-•	Escalation rules — under what conditions (asset value, quantity, cross-department transfer) must an Administrator approve in addition to the Department Representative?
-•	Retention period — how long should completed requests and detailed history entries be kept? For the prototype we can keep everything; a real system would need a retention policy.
-•	Scope of the assistant — is the natural-language assistant part of the first vertical slice that we implement, or is it deferred until the basic workflow is stable?
-We will resolve these points during the design phase and will update this document if any resolution changes the observable behaviour of the system.
-9.2 Traceability Notes
-Each functional requirement listed in Section 3 is referenced from one or more use cases in Section 5 through the natural language of the flows and the postconditions. Non-functional requirements are satisfied mainly by architectural choices and by tests rather than by individual use-case steps. The identifiers (FR-xx, NFR-xx, UC-xx) are sufficient to support discussion and review. A more formal traceability matrix can be produced later if the instructor requests it.
-10. Glossary
-•	Actor — a role played by a user (or another system) when interacting with the system under design.
-•	Alternative flow — a variation of the main success scenario that still leads to a successful outcome.
-•	Embedding — a numeric vector that represents the meaning of a piece of text; used for semantic similarity search.
-•	Exception flow — a path that handles an error or unexpected condition.
-•	Functional requirement — a statement of a service or behaviour the system must provide.
-•	Main flow (basic path) — the normal sequence of steps that achieves the use-case goal.
-•	Non-functional requirement — a constraint on the system or a quality it must possess (performance, security, usability, etc.).
-•	Postcondition — a condition that is true after a use case has finished (successfully or otherwise).
-•	Precondition — a condition that must be true before a use case can start.
-•	Primary actor — the actor who initiates the use case in order to achieve a goal.
-•	Secondary actor — an actor who participates in the use case but does not initiate it.
-•	Trigger — the event that causes a use case to begin.
-•	Use case — a description of how an actor interacts with the system to achieve a goal.
-•	Use case diagram — a diagram that shows actors, use cases and the relationships between them.
-11. Closing Remarks
-This requirements document has tried to describe the Circular Campus Resource Exchange and Asset Life Cycle Management System in enough detail that design and implementation can begin with a shared understanding of what is required. We have kept the AI features firmly in an assistive role and have insisted that the basic sharing workflow remain usable even when the local language models are not available.
-The document is a living artefact. If, during design or early implementation, we discover that a requirement is unclear, incomplete or inconsistent, we will update the document and note the change. For the purposes of the Phase 3 submission we believe the current set of requirements, the use-case diagram and the detailed use cases provide a solid foundation for the work that follows.
+UC-1 use-case diagram
+Description: A user proves their identity and gets the screens for their role.
+Actors: Campus User (primary).
+Preconditions: User has an active account.
+Trigger: User opens the system.
+Main flow:
+1.	User enters university email and password.
+2.	System verifies the credentials.
+3.	System loads the user's roles and department.
+4.	System opens the dashboard showing only functions allowed for those roles (FR-ACC-3).
+Alternative flows: 4a. Session idle for 30 minutes: system logs the user out and returns to step 1 (FR-ACC-6).
+Exception flows: 2a. Wrong password: system shows an error. 2b. Fifth wrong attempt in a row: system locks the account for 15 minutes (FR-ACC-4). 2c. Account deactivated: system refuses login and tells the user to contact the administrator.
+Postconditions: User session started; login recorded in the audit log.
+UC-2: Register Asset
+ 
+UC-2 use-case diagram
+Description: An authorised user records a new asset so it appears in the shared inventory with a standard category.
+Actors: Department Representative or Asset Custodian (primary, initiator); AI Service (secondary).
+Preconditions: User is logged in (UC-1) and has register permission for the department.
+Trigger: User clicks "Add Asset".
+Main flow:
+1.	User enters name, description, quantity, location, purchase date, estimated value and condition, and attaches photos.
+2.	System sends the name and description to the AI Service (UC-3).
+3.	System shows the suggested category, tags and standard description with a confidence value.
+4.	User accepts or edits the suggestions.
+5.	System validates all required fields.
+6.	System saves the asset with a unique asset ID and status Registered.
+7.	System records a "Registered" event in the asset history and confirms to the user.
+Alternative flows:
+•	3a. AI Service unavailable: system shows the normal category list; user picks a category manually; flow continues at step 5.
+•	3b. Confidence below 0.6: suggestion is shown with a "Low confidence" label.
+Exception flows:
+•	5a. Required field missing or invalid (e.g. negative value, file over 5 MB): system highlights the field and does not save.
+Postconditions: Asset stored with status Registered; history and audit entries created; AI suggestion and user decision logged.
+Rules: BR-1 (one department, one custodian).
+UC-3: Classify Asset with AI
+ 
+UC-3 use-case diagram
+Description: Included in UC-2; the AI suggests how to describe and categorise a new asset.
+Actors: AI Service (secondary); started by UC-2.
+Preconditions: Name and description entered in UC-2.
+Trigger: UC-2 step 2.
+Main flow:
+1.	System sends the name, description and specifications to the AI Service.
+2.	AI Service returns category, subcategory, up to 8 tags, material type, standard description and confidence.
+3.	System lists any missing fields as prompts (FR-AI-3).
+4.	System returns the suggestion to UC-2 for the user to accept or edit (FR-AI-2, FR-AI-18).
+Alternative flows: 2a. Confidence below 0.6: suggestion marked "Low confidence".
+Exception flows: 1a. AI Service unavailable: UC-2 continues with manual category selection.
+Postconditions: Suggestion, model version and user decision logged.
+UC-4: Publish Surplus Asset
+ 
+UC-4 use-case diagram
+Description: A department makes an unused asset visible in the campus marketplace.
+Actors: Department Representative or authorised Custodian (primary).
+Preconditions: Asset exists, belongs to the user's department and is Registered, In Use or back from maintenance.
+Trigger: User clicks "Publish as Surplus" on the asset page.
+Main flow:
+1.	System shows the asset details and asks for an availability note and optional end date.
+2.	User confirms the condition and enters the note.
+3.	System sets the status to Available.
+4.	System adds the listing to the marketplace.
+5.	System checks open requests and notifies requesters with a match score of 0.75 or more (FR-NOT-3).
+Alternative flows: 2a. Condition has changed: user updates it before publishing.
+Exception flows: 1a. Asset is Under Maintenance or Pending Disposition: system blocks publishing and shows the reason.
+Postconditions: Asset is Available and visible to all logged-in users; event logged.
+UC-5: Search Assets
+ 
+UC-5 use-case diagram
+Description: A user finds available assets before buying new ones.
+Actors: Any Campus User (primary).
+Preconditions: User is logged in.
+Trigger: User types a keyword or opens the marketplace.
+Main flow:
+1.	User enters a keyword and optional filters (category, condition, department, location, availability, age, value).
+2.	System returns matching assets the user is allowed to see, sorted by relevance.
+3.	User opens an asset to see photos, condition, location and history summary.
+4.	User may continue to UC-6 to request it.
+Alternative flows: 2a. User changes the sort order or filters; system refreshes the list.
+Exception flows: 2b. No results: system shows "No matching assets" and offers to submit a general request (UC-6).
+Postconditions: None stored (search is read-only).
+UC-6: Submit Resource Request
+ 
+UC-6 use-case diagram
+Description: A requester asks for a resource, either a specific listing or a described need that the AI matches.
+Actors: Requester (primary, initiator); Department Representative of the owning department (secondary, receives the request); AI Service (secondary, via UC-7).
+Preconditions: Requester is logged in and has request permission.
+Trigger: Requester clicks "Request" on a listing, or "New Request".
+Main flow:
+1.	Requester enters category, purpose, specifications, quantity, preferred condition, urgency, location and required date.
+2.	System filters available assets by hard rules and asks the AI Service to score them (UC-7).
+3.	System shows the top 5 matches with scores and reasons.
+4.	Requester selects one asset.
+5.	System saves the request as Submitted and reserves the asset for 3 working days.
+6.	System notifies the owning department's representative.
+7.	Requester sees the request in "My Requests" with its status.
+Alternative flows:
+•	1a. Requester started from a listing: the asset is pre-selected; flow goes to step 5.
+•	3a. No suitable match: requester saves the request as Open; system notifies them when a matching listing appears.
+•	5a. Asset already reserved: request joins the queue for that asset.
+Exception flows:
+•	2a. AI Service fails or takes over 10 s: system shows rule-based keyword results instead and says AI ranking is unavailable.
+•	5b. Required field missing: system highlights it and does not save.
+Postconditions: Request stored as Submitted (or Open); asset Reserved; notification sent; AI match list logged.
+Rules: BR-7 (3-day reservation limit).
+UC-7: Match Assets with AI
+ 
+UC-7 use-case diagram
+Description: Included in UC-6; ranks available assets against a request.
+Actors: AI Service (secondary); started by UC-6.
+Preconditions: Request details entered in UC-6.
+Trigger: UC-6 step 2.
+Main flow:
+1.	System removes assets that fail hard rules (not Available, quantity too low, condition below minimum).
+2.	System sends the request and remaining assets to the AI Service for semantic scoring.
+3.	System combines the score with location, urgency, date, transfer and repair cost into a 0–1 compatibility score.
+4.	System ranks equal-suitability matches higher if they give more waste diversion or carbon reduction.
+5.	System returns the top 5, each with a plain-language reason.
+Alternative flows: 1a. No asset passes the hard rules: system returns an empty list and UC-6 continues at 3a.
+Exception flows: 2a. AI Service fails or takes over 10 s: rule-based keyword search is used instead (FR-AI-9).
+Postconditions: Match list, scores and model version logged; the requester's choice or override recorded (FR-AI-18).
+UC-8: Review Request
+ 
+UC-8 use-case diagram
+Description: The owning department approves or rejects a request for its asset.
+Actors: Department Representative (primary); Requester and Notification Service (secondary).
+Preconditions: A Submitted request exists for an asset owned by the representative's department.
+Trigger: Representative opens the request from a notification or the approvals list.
+Main flow:
+1.	System shows the request, the asset, the AI match score and reason.
+2.	Representative reviews and clicks Approve.
+3.	System sets the request to Approved and creates a Scheduled transfer (UC-9).
+4.	System notifies the requester.
+Alternative flows: 2a. Representative rejects with a reason: system sets Rejected, releases the reservation, notifies the requester and suggests up to 3 alternatives.
+Exception flows:
+•	2b. Representative is also the requester: system blocks the approval (BR-3) and routes it to an administrator.
+•	2c. Reservation expired before review: system marks the request Expired and informs both sides. 2d. Asset value above the set limit: system also requires administrator approval (FR-APR-6).
+Postconditions: Request is Approved or Rejected; decision, approver and time logged.
+UC-9: Record Transfer
+↗ UC-9 use-case diagram
+Description: The move of an approved asset is recorded until the receiver confirms it.
+Actors: Department Representative of sending department (primary); Asset Custodian of receiving department (secondary).
+Preconditions: Request is Approved; transfer is Scheduled.
+Trigger: Sending side clicks "Mark Dispatched".
+Main flow:
+1.	Sender confirms collection or delivery date and attaches a handover form.
+2.	System sets the transfer to Dispatched and the asset to In Transfer, and notifies the receiver.
+3.	Receiving custodian confirms receipt and the condition on arrival.
+4.	System updates the asset's department, custodian, location and status (In Use).
+5.	System sets the request to Fulfilled and asks whether it avoided a purchase (FR-SUS-1).
+Alternative flows: 1a. Date changes: sender edits the schedule; receiver is notified.
+Exception flows: 3a. Asset damaged or missing on arrival: receiver reports it; transfer becomes Disputed; both departments and the administrator are notified.
+Postconditions: Ownership and location updated; transfer Completed; history shows the move.
+Rules: BR-2 (no department change without approval and confirmed receipt).
+UC-10: Record Maintenance
+↗ UC-10 use-case diagram
+Description: Maintenance staff log an inspection or repair and update the asset's condition.
+Actors: Maintenance Staff (primary); Asset Custodian (secondary, reports the defect).
+Preconditions: A defect has been reported on the asset (status Under Maintenance).
+Trigger: Maintenance staff open the job from their queue.
+Main flow:
+1.	Staff record the inspection result.
+2.	Staff record repair actions, parts, cost (AED) and date.
+3.	Staff mark the job Resolved and set the new condition.
+4.	System returns the asset to its previous status and notifies the custodian.
+Alternative flows: 1a. No fault found: staff close the job; asset returns to its previous status.
+Exception flows: 1b. Asset not repairable: staff mark it Not Repairable; system runs UC-12 («extend») and notifies the department representative.
+Postconditions: Maintenance record and cost saved; condition updated; history entry added.
+UC-11: Process End-of-Life Action
+↗ UC-11 use-case diagram
+Description: A department proposes donation, disassembly, recycling or disposal; a sustainability officer decides.
+Actors: Department Representative (primary, initiator); Sustainability Officer (secondary, approver); AI Service (via UC-12).
+Preconditions: Asset belongs to the representative's department and is not in a final state.
+Trigger: Representative clicks "Propose End-of-Life Action".
+Main flow:
+1.	System requests a sustainable-action recommendation (UC-12) and shows it with reason and confidence.
+2.	Representative selects an action and gives a reason.
+3.	System sets the asset to Pending Disposition and notifies the sustainability officer.
+4.	Officer approves.
+5.	Representative records completion: recipient or vendor, date, certificate.
+6.	System sets the final state and updates waste-diversion figures.
+Alternative flows: 4a. Officer rejects or chooses reuse/repair instead: asset returns to its previous status, or is published (UC-4).
+Exception flows: 4b. Asset flagged hazardous with no safety inspection: system blocks approval until one is recorded (NFR-6).
+Postconditions: Final state set and read-only; decision and AI recommendation logged.
+Rules: BR-5, BR-6, BR-8.
+UC-12: Recommend Sustainable Action
+↗ UC-12 use-case diagram
+Description: The AI suggests the best next life-cycle step for an asset.
+Actors: AI Service (secondary); started by UC-11 («include») or UC-10 when an asset is Not Repairable («extend»).
+Preconditions: Asset condition, age, maintenance history and value are recorded.
+Trigger: UC-11 step 1, or UC-10 exception 1b.
+Main flow:
+1.	System sends the asset's condition, age, repair history and value to the AI Service.
+2.	AI Service returns one action (retain, transfer, repair, refurbish, donate, disassemble, recycle, dispose), a reason and a confidence value.
+3.	System shows the recommendation to the authorised user.
+4.	User accepts, changes or dismisses it; no state changes without approval (FR-AI-11).
+Alternative flows: 2a. Confidence below 0.6: shown as "Low confidence – review carefully".
+Exception flows: 1a. AI Service unavailable: user proceeds without a recommendation.
+Postconditions: Recommendation and the user's decision logged.
+UC-13: Ask AI Assistant
+↗ UC-13 use-case diagram
+Description: A user asks in plain language to search, request, check status or get policy guidance.
+Actors: Any Campus User (primary); AI Service (secondary).
+Preconditions: User is logged in.
+Trigger: User types a question in the assistant panel.
+Main flow:
+1.	User asks, e.g. "Is there a working projector in Engineering?"
+2.	System sends the question and the user's role to the AI Service.
+3.	AI Service chooses an allowed system function (e.g. search).
+4.	System runs the function with the user's permissions.
+5.	Assistant replies with results and links to the records.
+Alternative flows: 3a. User asks to submit a request: assistant fills a summary; user confirms; system runs UC-6.
+Exception flows:
+•	4a. Function not permitted for the role: system refuses and explains which role can do it.
+•	2a. AI Service unavailable: assistant shows "Assistant unavailable – use Search" with a link to UC-5.
+Postconditions: Conversation and any action logged; no data outside the user's permissions shown.
+UC-14: Generate Sustainability Report
+↗ UC-14 use-case diagram
+Description: A monthly report of reuse, savings and environmental impact, with an AI-written summary.
+Actors: Sustainability Officer (primary); Procurement/Finance Officer (secondary, reader); AI Service (secondary).
+Preconditions: User has report permission; data exists for the chosen period.
+Trigger: User selects a month and department and clicks "Generate Report".
+Main flow:
+1.	System computes totals: transfers, avoided purchases, savings (AED), waste diverted (kg), CO2e, reuse rate, maintenance costs.
+2.	System sends the totals (not raw records) to the AI Service.
+3.	AI Service returns a narrative summary and suggested actions.
+4.	System checks that every number in the text matches the computed totals.
+5.	System shows the report with tables, charts and the summary; user exports PDF or CSV.
+Alternative flows: 3a. AI Service unavailable: system shows the tables and charts without the narrative.
+Exception flows: 4a. A number in the text does not match: system removes the narrative and flags it for regeneration.
+Postconditions: Report saved with date, period and model version.
+Rules: FR-AI-17 (figures from the database only).
+UC-15: Manage Users and Roles
+↗ UC-15 use-case diagram
+Description: The administrator controls who can use the system and what they can do.
+Actors: System Administrator (primary).
+Preconditions: Administrator is logged in.
+Trigger: Administrator opens "User Management".
+Main flow:
+1.	Administrator creates or selects a user.
+2.	Administrator sets name, email, department and roles.
+3.	System validates and saves the account.
+4.	Administrator may also add or edit departments, locations and asset categories (FR-ACC-5).
+Alternative flows: 1a. Administrator deactivates an account: system confirms first, then blocks the user's next login.
+Exception flows: 3a. Email already used: system refuses and shows the existing account.
+Postconditions: Account and role changes saved and audited.
+UC-16: Edit Asset
+↗ UC-16 use-case diagram
+Description: An authorised user corrects or updates an asset's details or status.
+Actors: Department Representative or Asset Custodian (primary).
+Preconditions: Asset belongs to the user's department; asset is not in a final state.
+Trigger: User clicks "Edit" on the asset page.
+Main flow:
+1.	System shows the current values.
+2.	User changes fields (e.g. location, condition, photos) or the status.
+3.	System validates the fields and checks the status change is allowed (FR-AST-6).
+4.	System saves the changes and keeps the old values in history (FR-AST-5).
+Alternative flows: 2a. User cancels: nothing changes.
+Exception flows: 3a. Status change not allowed (e.g. Disposed → Available): system refuses and explains. 3b. Invalid field: system highlights it.
+Postconditions: Asset updated; edit event in history.
+UC-17: Withdraw Listing
+↗ UC-17 use-case diagram
+Description: A department removes an asset from the marketplace or acts on an expired listing.
+Actors: Department Representative or Asset Custodian (primary).
+Preconditions: Asset is Available and has no Approved request.
+Trigger: User clicks "Withdraw", or the listing reaches its end date (FR-PUB-4).
+Main flow:
+1.	System asks for a reason.
+2.	User confirms.
+3.	System removes the listing and sets the asset back to In Use.
+4.	System cancels any queued requests and notifies those requesters.
+Alternative flows: 1a. Listing expired: system asks the user to extend, withdraw, or propose a disposition (goes to UC-11).
+Exception flows: 2a. Asset has an Approved request: system blocks the withdrawal (FR-PUB-3).
+Postconditions: Listing removed; event logged.
+UC-18: Track or Cancel Request
+↗ UC-18 use-case diagram
+Description: A requester follows their requests and can cancel one before approval.
+Actors: Requester (primary).
+Preconditions: Requester has at least one request.
+Trigger: Requester opens "My Requests".
+Main flow:
+1.	System lists the requester's requests with state and dates (FR-REQ-4).
+2.	Requester opens one to see its full history.
+3.	Requester clicks "Cancel" on a Submitted or Under Review request.
+4.	System sets it to Cancelled and releases the reservation (FR-REQ-5).
+Alternative flows: 3a. Requester only views status: flow ends at step 2.
+Exception flows: 3b. Request already Approved: cancel is not offered; requester is told to contact the department. 1a. Reservation passed 3 working days: system shows it as Expired (FR-REQ-6).
+Postconditions: Request state updated; owning department notified of any cancellation.
+UC-19: Report Defect
+↗ UC-19 use-case diagram
+Description: A custodian reports that an asset is faulty so maintenance can act.
+Actors: Asset Custodian (primary); Maintenance Staff (secondary, notified).
+Preconditions: Asset is in the custodian's care and not in a final state.
+Trigger: Custodian clicks "Report Defect".
+Main flow:
+1.	Custodian describes the fault and adds an optional photo (FR-MNT-1).
+2.	System creates a maintenance job in Reported state.
+3.	System sets the asset to Under Maintenance and notifies maintenance staff (FR-MNT-2).
+Alternative flows: 1a. Asset is currently listed: system pauses the listing until repaired.
+Exception flows: 1b. Description empty: system asks for it before saving.
+Postconditions: Maintenance job open; UC-10 can start.
+UC-20: View Asset History
+↗ UC-20 use-case diagram
+Description: A user sees the complete life-cycle story of an asset.
+Actors: Campus User (primary), limited by role.
+Preconditions: User is logged in and may view the asset.
+Trigger: User opens the "History" tab of an asset.
+Main flow:
+1.	System loads all recorded events for the asset (FR-AUD-1).
+2.	System shows them as a timeline, newest first, with date, user and old/new values (FR-AUD-2).
+3.	User filters by event type if needed.
+Alternative flows: 2a. Requester role: cost and value fields are hidden.
+Exception flows: 1a. User tries to edit or delete an entry: no such option exists; history is read-only (FR-AUD-3).
+Postconditions: None (read-only).
+UC-21: View Audit Log
+↗ UC-21 use-case diagram
+Description: The administrator checks who did what across the whole system, including AI decisions.
+Actors: System Administrator (primary).
+Preconditions: Administrator is logged in.
+Trigger: Administrator opens "Audit Log".
+Main flow:
+1.	Administrator searches by user, asset, action and date range (FR-AUD-5).
+2.	System shows matching entries, including AI recommendations with model version, confidence and final decision (FR-AUD-4).
+3.	Administrator exports the results to CSV.
+Alternative flows: 1a. No filter: system shows the latest 100 entries.
+Exception flows: 2a. No match: system shows "No entries found". Entries can never be edited or deleted (FR-AUD-3).
+Postconditions: None stored; the view itself is logged.
+UC-22: Generate Operational Report
+↗ UC-22 use-case diagram
+Description: Standard reports on assets, requests, transfers, maintenance and approvals.
+Actors: System Administrator (primary).
+Preconditions: Administrator is logged in.
+Trigger: Administrator opens "Reports" and picks a report type.
+Main flow:
+1.	Administrator selects the report (available assets, open requests, completed transfers, maintenance history, ownership changes, approvals or asset status).
+2.	Administrator sets department and date range.
+3.	System builds the report from the database (FR-RPT-1).
+4.	Administrator exports it as PDF or CSV (FR-RPT-2).
+Alternative flows: 2a. No filter: report covers all departments for the current month.
+Exception flows: 3a. No data in range: system shows an empty report with a message.
+Postconditions: Report generated; export logged.
+6.3 Combined Use-Case Diagram
+↗ UML use-case diagram · 22 use cases, 9 actors
+AI support enters through «include» (classification, matching, end-of-life advice) and one «extend» (advice only when an asset is not repairable); every AI use case ends with a human decision.
+7. Prioritisation and Traceability
+7.1 Prioritisation
+The prototype must deliver every Must requirement; Should items follow if time allows; Could items are future work.
+Priority	Scope	Examples
+Must – essential prototype	Login and roles, asset registration, publishing, search, requests and reservations, approvals, transfers, history and audit, basic reports, the five required AI features with explanations, human approval and AI fallback, core sustainability figures	FR-ACC-1–3, FR-AST-1–6, FR-REQ-1–5, FR-APR-1–5, FR-TRF-1–4, FR-AI-1–7, 9–11, 13–18, FR-SUS-1–2, 6
+Should – desirable extension	Account lockout, request queue, email copies, PDF/CSV export, sustainability ranking, waste and CO2e estimates, WCAG 2.2 AA	FR-ACC-4, FR-REQ-3, FR-NOT-2, FR-RPT-2, FR-AI-8, FR-SUS-3–5, NFR-16
+Could – future enhancement	Listing expiry prompts, high-value second approval, missing-metadata prompts, Arabic assistant, fairness monitoring	FR-PUB-4, FR-APR-6, FR-AI-3, FR-AI-13 (Arabic), NFR-25
+Won't (this release)	Public access, live integration with university ERP/procurement systems, demand forecasting	—
+7.2 Classic vs AI-Enhanced Requirements
+Need	Classic (deterministic) requirement	AI-enhanced requirement	Human control
+Find an asset	FR-SRC-1–2 keyword and filters	FR-AI-4–7 semantic match with score and reason	Requester chooses
+Describe an asset	FR-AST-1 category picked from list	FR-AI-1–2 suggested category and tags	User accepts or edits
+End-of-life decision	FR-EOL-1 manual proposal	FR-AI-10–12 recommended action	Sustainability officer approves
+Reporting	FR-RPT-1 fixed tables	FR-AI-16–17 narrative summary	Numbers from database only
+Rule-based checks stay in charge of eligibility (availability, quantity, permissions); AI only ranks and explains within what the rules allow.
+7.3 Traceability to Phase 1 Success Criteria
+Phase 1 success criterion	Requirements	Use cases
+Core workflow 100% complete	FR-AST, FR-PUB, FR-REQ, FR-APR, FR-TRF, FR-AUD	UC-2, 4, 6, 8, 9
+Search: 18 of 20 expected results	FR-SRC-1–4	UC-5
+Permissions: all unauthorised attempts blocked	FR-ACC-3, NFR-10	UC-1, 15
+History: 20 of 20 events recorded	FR-AUD-1–3	UC-9, 10, 11
+Usability: 80% complete tasks unaided	NFR-15	UC-2, 6
+AI matching: 14 of 20 in top 3	FR-AI-4–7, NFR-21	UC-7
+AI assistant: 16 of 20 correct, no leaks	FR-AI-13–15, NFR-10	UC-13
+AI reporting: no wrong totals	FR-AI-17, NFR-23	UC-14
+Sustainability outcomes recorded	FR-SUS-1–6	UC-9, 11, 14
+Auditability: 20 of 20 actions logged	FR-AUD-1, 4	all
+7.4 Functional Requirement to Use-Case Map
+All 82 functional requirements are covered by at least one use case; none is left without one.
+Feature	Requirement → use case(s)	Count
+4.1 Accounts and access	ACC-1 → UC-15 · ACC-2 → UC-1 · ACC-3 → UC-1 (and every UC precondition) · ACC-4 → UC-1 · ACC-5 → UC-15 · ACC-6 → UC-1	6
+4.2 Asset registration	AST-1 → UC-2 · AST-2 → UC-2 · AST-3 → UC-2 · AST-4 → UC-2 · AST-5 → UC-16 · AST-6 → UC-16, UC-2	6
+4.3 Publication	PUB-1 → UC-4 · PUB-2 → UC-4 · PUB-3 → UC-17 · PUB-4 → UC-17	4
+4.4 Search	SRC-1 to SRC-5 → UC-5	5
+4.5 Requests	REQ-1 → UC-6 · REQ-2 → UC-6 · REQ-3 → UC-6 · REQ-4 → UC-18 · REQ-5 → UC-18 · REQ-6 → UC-18, UC-8	6
+4.6 Approval	APR-1 → UC-8 · APR-2 → UC-8 · APR-3 → UC-8 · APR-4 → UC-8 · APR-5 → UC-11 · APR-6 → UC-8	6
+4.7 Transfer	TRF-1 → UC-8, UC-9 · TRF-2 to TRF-6 → UC-9	6
+4.8 Maintenance	MNT-1 → UC-19 · MNT-2 → UC-19 · MNT-3 → UC-10 · MNT-4 → UC-10 · MNT-5 → UC-10, UC-12	5
+4.9 End-of-life	EOL-1 to EOL-4 → UC-11	4
+4.10 History and audit	AUD-1 → UC-20 · AUD-2 → UC-20 · AUD-3 → UC-20, UC-21 · AUD-4 → UC-21 (logged in UC-3, 7, 12) · AUD-5 → UC-21	5
+4.11 Notifications	NOT-1 → UC-6, 8, 9, 19 · NOT-2 → UC-6, 8 (Notification Service) · NOT-3 → UC-4	3
+4.12 Reports	RPT-1 → UC-22 · RPT-2 → UC-22	2
+4.13 AI features	AI-1 to AI-3 → UC-3 · AI-4 to AI-9 → UC-7 · AI-10 to AI-12 → UC-12 · AI-13 to AI-15 → UC-13 · AI-16, AI-17 → UC-14 · AI-18 → UC-3, 7, 12	18
+4.14 Sustainability	SUS-1 → UC-9 · SUS-2 to SUS-6 → UC-14	6
+Total		82
+
