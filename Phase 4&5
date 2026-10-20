@@ -1,1 +1,24 @@
                                     Phase 4&5 Sequance Context and DFD
+
+
+1. Context Digram:
+  Process 0 is the whole system. Each arrow is data that an external entity sends to thr system
+  or gets back from it.
+  
+  (context digram)
+
+
+
+2. Data Flow Digram(DFD)
+
+  (DFD)
+
+
+3. Sequance Digrams
+  UC-1: log in 
+  Small description
+
+  (Sequance digram)
+
+  UC-2: Register Asset
+  
