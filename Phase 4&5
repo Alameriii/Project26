@@ -22,3 +22,10 @@
 
   UC-2: Register Asset
   . . . . 
+
+
+  UC-3: Classify Assest with AI
+  This use case runs inside UC-2. the backend sends the asset text to Gemini, get back a category,
+  tags and a list of missing fields, and logs the suggestion together with what the user decided.
+
+    (sequence Digram)
