@@ -60,6 +60,14 @@
 
   Two actors take part. The sending representative dispatches the assets and the receiving custodian confirms it arrived.    If it arrives damaged or missing, the transfer becomes disputed.
 
+UC-10: Record Maintenance
+After inspection the job ends one of three ways: repaired, no fault found, or not repairable. Not repairable calls UC-12 for an ai recommendation.
+
+UC-11: Process End-of-Life Action
+The representative proposes a donation, recycling or disposal, and the sustainability officer decides. A hazardous asset cant be approved until a safety inspection is on record.
+
+
+
   UC-15: Manage users and roles
 
   The administrator can edit or create a user, deactivate an account, or edit departments, locations and categories.
@@ -75,3 +83,15 @@
 
   The requester can see status and history, and can cancel a request only while it is Submitted or 
   Under Review.
+  
+UC-19: Report Defect
+Reporting a defect open maintenance job, set the asset to under Maintenance, pauses its listing if it has one, and notifies maintenance staff.
+
+UC-20: view asset history
+The timeline is read-only. Requesters dont see cost or value fields.
+
+UC-21: view Audit log
+THE ADMINISTRATOR FILTERS the log and can export it as CSV. Opening the log is itself recorded.
+
+UC-22 : generate Operational Report
+Standard report come straight from the database and can be exported as PDF or CSV
