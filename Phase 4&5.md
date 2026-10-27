@@ -11,8 +11,7 @@
 
 2. Data Flow Digram(DFD)
 
-  (DFD)
-
+<img width="2379" height="1646" alt="dfd drawio" src="https://github.com/user-attachments/assets/af33f605-59c1-4038-9c98-0b2dc8fa2b2d" />
 
 3. Sequance Digrams
   UC-1: log in 
