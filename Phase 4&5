@@ -16,16 +16,43 @@
 
 3. Sequance Digrams
   UC-1: log in 
-  Small description
+
+  A successful login, then three ways it can fail: a wrong password, a lock after five wrong tries,
+  and a deactivates account. The note at the bottom shows the 30-minute idle logout. 
 
   (Sequance digram)
 
   UC-2: Register Asset
+
+  The backend asks the AI service to classify the asset(UC-3). If the AI is down, the user picks a
+  category by hand. A missing or invaild feild stops the save.
   . . . . 
 
 
   UC-3: Classify Assest with AI
+
   This use case runs inside UC-2. the backend sends the asset text to Gemini, get back a category,
   tags and a list of missing fields, and logs the suggestion together with what the user decided.
 
     (sequence Digram)
+
+  UC-4: Publish Surplus Asset
+
+  An asset under maintenance or waiting for disposal can not be published. Otherwise it goes on the
+  marketplace and requesters with a match score of 0.75 or more get a notification.
+
+  UC-5: Search Assets
+
+  Search only reads data. The user can change filters, open an asset, or get a "No matching assets"
+  message.
+
+  UC-6: Submit Resource Request 
+
+  The request runs the AI matching in UC-7. If Gemini fails or takes longer than 10 seconds, keyword
+  results are shown instead. The asset is reserved for 3 working days, or the request joins a queue if
+  the asset is already reserved.
+
+  UC-18: Track or Cancel Request 
+
+  The requester can see status and history, and can cancel a request only while it is Submitted or 
+  Under Review.
