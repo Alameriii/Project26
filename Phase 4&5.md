@@ -52,6 +52,25 @@
   results are shown instead. The asset is reserved for 3 working days, or the request joins a queue if
   the asset is already reserved.
 
+  UC-8: Review Request 
+
+  The representative approves or rejects the request. The system blocks the self-approval (BR-3), adds and administrator     step for assets above the value limit, and marks the request Expired if the reservation ran out.
+
+  UC-9: Record Transfer 
+
+  Two actors take part. The sending representative dispatches the assets and the receiving custodian confirms it arrived.    If it arrives damaged or missing, the transfer becomes disputed.
+
+  UC-15: Manage users and roles
+
+  The administrator can edit or create a user, deactivate an account, or edit departments, locations and categories.
+
+  UC-16: Edit Asset
+
+  Old values are kept in the asset history. Status changes that the life-cycle rules don't allow are refused.
+
+  UC-17: Withdraw Listing
+  Withdraw is blocked while the asset has an approved request. When it goes through, everyone waiting in the queue is        notified.
+
   UC-18: Track or Cancel Request 
 
   The requester can see status and history, and can cancel a request only while it is Submitted or 
